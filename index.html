@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Design System v1.0</title>
+    
+    <!-- 1. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. React & ReactDOM (Stable 18.2.0) -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <!-- 3. Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 4. Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+    <div id="root"></div>
+
+    <!-- MAIN REACT APPLICATION CODE -->
+    <script type="text/babel">
+        // --- IMPORTS SETUP ---
+        const { useState, useEffect, useRef } = React;
+
+        // --- INTERNAL ICONS (SVG Components) ---
+        const Icons = {
+            Activity: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+            Users: ({size=24}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            Settings: ({size=24, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+            Layout: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>,
+            Database: ({size=18}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>,
+            Server: ({size=18}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>,
+            FileText: ({size=14}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+            Save: ({size=14}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+            LogOut: ({size=16}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+            Search: ({size=16, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        };
+
+        // --- MOCK DATABASE ---
+        const INITIAL_INTERPRETATIONS = {
+            "Generator": {
+                strategy: "Wait to Respond (等待回應)",
+                theme: "Frustration (挫敗感)",
+                description: "生產者擁有薦骨動力，是世界的建造者。當他們做自己熱愛的事情時，會產生源源不絕的能量。"
+            },
+            "Projector": {
+                strategy: "Wait for the Invitation (等待被邀請)",
+                theme: "Bitterness (苦澀)",
+                description: "投射者是天生的管理者與引導者，專注於了解他人並引導能量的使用。"
+            },
+            "Manifestor": {
+                strategy: "To Inform (告知)",
+                theme: "Anger (憤怒)",
+                description: "顯示者是發起者，能夠獨立發起行動，不需要等待外界的訊號。"
+            },
+            "Reflector": {
+                strategy: "Wait a Lunar Cycle (等待一個月亮週期)",
+                theme: "Disappointment (失望)",
+                description: "反映者沒有固定的能量中心，他們像鏡子一樣反映周遭環境的健康狀況。"
+            }
+        };
+
+        const MOCK_LOGS = [
+            { id: 1, date: "2023-10-24 10:30", name: "Alice", type: "Generator" },
+            { id: 2, date: "2023-10-24 11:15", name: "Bob", type: "Projector" },
+            { id: 3, date: "2023-10-25 09:20", name: "Charlie", type: "Manifestor" },
+        ];
+
+        // --- API SIMULATION ---
+        const mockCalculateApi = (birthData) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const types = ["Generator", "Projector", "Manifestor", "Reflector"];
+                    const profiles = ["1/3", "2/4", "3/5", "4/6", "5/1", "6/2"];
+                    const randomType = types[Math.floor(Math.random() * types.length)];
+                    const randomProfile = profiles[Math.floor(Math.random() * profiles.length)];
+                    
+                    resolve({
+                        success: true,
+                        data: {
+                            type: randomType,
+                            profile: randomProfile,
+                            definition: Math.random() > 0.5 ? "Single Definition" : "Split Definition",
+                            authority: "Sacral",
+                            centers: {
+                                head: Math.random() > 0.5,
+                                ajna: Math.random() > 0.5,
+                                throat: Math.random() > 0.5,
+                                g: Math.random() > 0.5,
+                                heart: Math.random() > 0.5,
+                                sacral: randomType === "Generator",
+                                spleen: Math.random() > 0.5,
+                                solar: Math.random() > 0.5,
+                                root: Math.random() > 0.5
+                            }
+                        }
+                    });
+                }, 1500);
+            });
+        };
+
+        // --- CHART COMPONENT (Chart.js Wrapper) ---
+        const AdminChart = ({ data }) => {
+            const chartRef = useRef(null);
+            const canvasRef = useRef(null);
+
+            useEffect(() => {
+                // Destroy existing chart to prevent duplicates
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                if (canvasRef.current) {
+                    const ctx = canvasRef.current.getContext('2d');
+                    chartRef.current = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.map(d => d.name),
+                            datasets: [{
+                                label: 'Calculations',
+                                data: data.map(d => d.count),
+                                borderColor: '#9333ea',
+                                backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                                tension: 0.4,
+                                fill: true,
+                                pointBackgroundColor: '#fff',
+                                pointBorderColor: '#9333ea',
+                                pointRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: '#e2e8f0' },
+                                    ticks: { stepSize: 1 }
+                                },
+                                x: {
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+
+            return (
+                <div style={{ height: '300px', width: '100%' }}>
+                    <canvas ref={canvasRef}></canvas>
+                </div>
+            );
+        };
+
+        // --- COMPONENTS ---
+
+        const BodyGraph = ({ centers }) => {
+            const getCenterColor = (isDefined, type) => isDefined ? (type === 'head' || type === 'ajna' ? '#fbbf24' : '#ef4444') : '#ffffff';
+            
+            return (
+                <div className="relative w-64 h-96 mx-auto my-4">
+                    <svg viewBox="0 0 300 500" className="w-full h-full drop-shadow-lg">
+                        <path d="M100,50 L150,20 L200,50 L150,80 Z" fill={getCenterColor(centers.head, 'head')} stroke="#333" strokeWidth="2" />
+                        <path d="M100,100 L200,100 L150,160 Z" fill={getCenterColor(centers.ajna, 'ajna')} stroke="#333" strokeWidth="2" />
+                        <rect x="110" y="180" width="80" height="40" fill={getCenterColor(centers.throat, 'throat')} stroke="#333" strokeWidth="2" />
+                        <path d="M150,230 L190,270 L150,310 L110,270 Z" fill={getCenterColor(centers.g, 'g')} stroke="#333" strokeWidth="2" />
+                        <path d="M210,280 L240,290 L220,320 Z" fill={getCenterColor(centers.heart, 'heart')} stroke="#333" strokeWidth="2" />
+                        <rect x="110" y="330" width="80" height="40" fill={getCenterColor(centers.sacral, 'sacral')} stroke="#333" strokeWidth="2" />
+                        <path d="M30,350 L80,350 L55,400 Z" fill={getCenterColor(centers.spleen, 'spleen')} stroke="#333" strokeWidth="2" />
+                        <path d="M220,350 L270,350 L245,400 Z" fill={getCenterColor(centers.solar, 'solar')} stroke="#333" strokeWidth="2" />
+                        <rect x="110" y="420" width="80" height="40" fill={getCenterColor(centers.root, 'root')} stroke="#333" strokeWidth="2" />
+                        <line x1="150" y1="80" x2="150" y2="100" stroke="#ccc" strokeWidth="2" />
+                        <line x1="150" y1="160" x2="150" y2="180" stroke="#ccc" strokeWidth="2" />
+                    </svg>
+                    <div className="text-center text-xs text-slate-400 mt-2">* Simplified Illustration</div>
+                </div>
+            );
+        };
+
+        const FrontendView = ({ interpretations, onCalculate }) => {
+            const [formData, setFormData] = useState({ name: '', date: '', time: '', city: '' });
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const response = await mockCalculateApi(formData);
+                setResult({ ...response.data, userName: formData.name });
+                onCalculate({ ...formData, type: response.data.type });
+                setLoading(false);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white font-sans">
+                    <nav className="p-6 flex justify-between items-center backdrop-blur-md bg-white/10 border-b border-white/10 sticky top-0 z-50">
+                        <div className="text-2xl font-bold tracking-widest text-purple-300 flex items-center gap-2">
+                            <Icons.Activity /> HUMAN DESIGN
+                        </div>
+                        <div className="text-sm text-purple-200">System v1.0</div>
+                    </nav>
+
+                    <main className="container mx-auto px-4 py-12 flex flex-col md:flex-row gap-12 items-start">
+                        <div className="w-full md:w-1/3 bg-white/5 p-8 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-sm">
+                            <h2 className="text-xl font-semibold mb-6 text-purple-200">Get Your Chart</h2>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm text-slate-400 mb-1">Name</label>
+                                    <input required type="text" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 focus:outline-none focus:border-purple-500 transition-colors" onChange={e => setFormData({...formData, name: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-slate-400 mb-1">Birth Date</label>
+                                    <input required type="date" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 focus:outline-none focus:border-purple-500" onChange={e => setFormData({...formData, date: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-slate-400 mb-1">Birth Time</label>
+                                    <input required type="time" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 focus:outline-none focus:border-purple-500" onChange={e => setFormData({...formData, time: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-slate-400 mb-1">City</label>
+                                    <input required type="text" placeholder="e.g. Taipei" className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 focus:outline-none focus:border-purple-500" onChange={e => setFormData({...formData, city: e.target.value})} />
+                                </div>
+                                <button disabled={loading} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg mt-4 transition-all flex justify-center items-center gap-2">
+                                    {loading ? 'Calculating...' : 'Calculate Chart'}
+                                </button>
+                            </form>
+                        </div>
+
+                        <div className="w-full md:w-2/3 min-h-[500px] flex items-center justify-center relative">
+                            {!result && !loading && (
+                                <div className="text-center text-slate-500">
+                                    <div className="text-6xl mb-4 opacity-20">⚛</div>
+                                    <p>Enter your birth data to reveal your design.</p>
+                                </div>
+                            )}
+
+                            {loading && (
+                                <div className="text-center">
+                                    <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-purple-300 animate-pulse">Connecting to Celestial Database...</p>
+                                </div>
+                            )}
+
+                            {result && !loading && (
+                                <div className="w-full bg-white text-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row animate-fade-in-up">
+                                    <div className="md:w-1/2 bg-slate-100 p-6 flex flex-col items-center justify-center border-r border-slate-200">
+                                        <BodyGraph centers={result.centers} />
+                                    </div>
+                                    <div className="md:w-1/2 p-8 flex flex-col justify-center">
+                                        <div className="uppercase tracking-widest text-xs font-bold text-purple-600 mb-2">Human Design System</div>
+                                        <h1 className="text-3xl font-bold mb-1 text-slate-900">{result.userName}</h1>
+                                        <div className="text-xl text-purple-700 font-medium mb-6">{result.type} • {result.profile}</div>
+                                        <div className="space-y-6">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-400 uppercase">Strategy</h3>
+                                                <p className="text-lg font-medium">{interpretations[result.type]?.strategy}</p>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-400 uppercase">Not-Self Theme</h3>
+                                                <p className="text-lg font-medium">{interpretations[result.type]?.theme}</p>
+                                            </div>
+                                            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                                <h3 className="text-sm font-bold text-purple-800 uppercase mb-1">Analysis</h3>
+                                                <p className="text-sm text-purple-900 leading-relaxed">{interpretations[result.type]?.description}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const AdminView = ({ logs, interpretations, onUpdateInterpretation }) => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [editingType, setEditingType] = useState(null);
+            const [tempDesc, setTempDesc] = useState('');
+
+            const totalReadings = logs.length;
+            const typeCounts = logs.reduce((acc, curr) => {
+                acc[curr.type] = (acc[curr.type] || 0) + 1;
+                return acc;
+            }, {});
+            // Format data for Chart.js
+            const chartData = Object.keys(typeCounts).map(type => ({ name: type, count: typeCounts[type] }));
+
+            const handleEdit = (type) => {
+                setEditingType(type);
+                setTempDesc(interpretations[type].description);
+            };
+
+            const handleSave = () => {
+                onUpdateInterpretation(editingType, tempDesc);
+                setEditingType(null);
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-100 font-sans flex text-slate-800">
+                    <aside className="w-64 bg-slate-900 text-white flex flex-col">
+                        <div className="p-6 border-b border-slate-800">
+                            <h1 className="text-xl font-bold flex items-center gap-2"><Icons.Layout /> Admin Panel</h1>
+                        </div>
+                        <nav className="flex-1 p-4 space-y-2">
+                            <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Icons.Activity size={18} /> Dashboard
+                            </button>
+                            <button onClick={() => setActiveTab('content')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'content' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Icons.Database size={18} /> Content Manager
+                            </button>
+                            <button onClick={() => setActiveTab('logs')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'logs' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Icons.Server size={18} /> API Logs
+                            </button>
+                        </nav>
+                    </aside>
+
+                    <main className="flex-1 overflow-y-auto">
+                        <header className="bg-white shadow-sm p-6 flex justify-between items-center">
+                            <h2 className="text-2xl font-bold text-slate-800 capitalize">{activeTab}</h2>
+                            <div className="flex items-center gap-4">
+                                <div className="bg-slate-100 p-2 rounded-full"><Icons.Settings size={20} className="text-slate-600" /></div>
+                            </div>
+                        </header>
+
+                        <div className="p-8">
+                            {activeTab === 'dashboard' && (
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                                            <div className="text-slate-500 text-sm mb-1">Total Calculations</div>
+                                            <div className="text-4xl font-bold text-slate-800">{totalReadings}</div>
+                                        </div>
+                                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                                            <div className="text-slate-500 text-sm mb-1">Most Common Type</div>
+                                            <div className="text-4xl font-bold text-purple-600">{Object.entries(typeCounts).sort((a,b) => b[1] - a[1])[0]?.[0] || 'N/A'}</div>
+                                        </div>
+                                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                                            <div className="text-slate-500 text-sm mb-1">API Requests (24h)</div>
+                                            <div className="text-4xl font-bold text-green-600">128</div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                                        <h3 className="text-lg font-bold mb-4">Readings Trend (Chart.js)</h3>
+                                        {/* Chart Component */}
+                                        <AdminChart data={chartData} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'content' && (
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100">
+                                        <h3 className="font-bold text-lg">Type Interpretations</h3>
+                                        <p className="text-sm text-slate-500">Edit text displayed to users.</p>
+                                    </div>
+                                    <div className="divide-y divide-slate-100">
+                                        {Object.keys(interpretations).map(type => (
+                                            <div key={type} className="p-6 hover:bg-slate-50 transition-colors">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-bold text-purple-700">{type}</h4>
+                                                    {editingType !== type && (
+                                                        <button onClick={() => handleEdit(type)} className="text-sm text-slate-400 hover:text-purple-600 flex items-center gap-1">
+                                                            <Icons.FileText size={14} /> Edit
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {editingType === type ? (
+                                                    <div className="space-y-3">
+                                                        <textarea className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 min-h-[100px]" value={tempDesc} onChange={(e) => setTempDesc(e.target.value)} />
+                                                        <div className="flex gap-2">
+                                                            <button onClick={handleSave} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">Save</button>
+                                                            <button onClick={() => setEditingType(null)} className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-lg text-sm hover:bg-slate-50">Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-slate-600 text-sm leading-relaxed">{interpretations[type].description}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {activeTab === 'logs' && (
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100"><h3 className="font-bold text-lg">Calculation Logs</h3></div>
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-50 text-slate-500 font-medium">
+                                            <tr><th className="px-6 py-3">Timestamp</th><th className="px-6 py-3">Name</th><th className="px-6 py-3">Type</th></tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {logs.map(log => (
+                                                <tr key={log.id} className="hover:bg-slate-50">
+                                                    <td className="px-6 py-4">{log.date}</td>
+                                                    <td className="px-6 py-4 font-medium text-slate-800">{log.name}</td>
+                                                    <td className="px-6 py-4">{log.type}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const HumanDesignApp = () => {
+            const [isAdminMode, setIsAdminMode] = useState(false);
+            const [interpretations, setInterpretations] = useState(INITIAL_INTERPRETATIONS);
+            const [logs, setLogs] = useState(MOCK_LOGS);
+
+            const handleNewCalculation = (data) => {
+                const newLog = { id: logs.length + 1, date: new Date().toLocaleString(), name: data.name, type: data.type };
+                setLogs([newLog, ...logs]);
+            };
+
+            const handleUpdateInterpretation = (type, newDesc) => {
+                setInterpretations(prev => ({ ...prev, [type]: { ...prev[type], description: newDesc } }));
+            };
+
+            return (
+                <div>
+                    <div className="fixed bottom-4 right-4 z-[100]">
+                        <button onClick={() => setIsAdminMode(!isAdminMode)} className={`shadow-lg px-4 py-2 rounded-full font-bold transition-all flex items-center gap-2 ${isAdminMode ? 'bg-white text-slate-900 border border-slate-300' : 'bg-slate-800 text-white'}`}>
+                            {isAdminMode ? <><Icons.LogOut size={16}/> Exit Admin</> : <><Icons.Users size={16}/> Admin Login</>}
+                        </button>
+                    </div>
+                    {isAdminMode ? <AdminView logs={logs} interpretations={interpretations} onUpdateInterpretation={handleUpdateInterpretation} /> : <FrontendView interpretations={interpretations} onCalculate={handleNewCalculation} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HumanDesignApp />);
+    </script>
+</body>
+</html>
